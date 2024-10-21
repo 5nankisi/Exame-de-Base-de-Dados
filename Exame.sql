@@ -121,189 +121,49 @@ HAVING COUNT(M.Cod_aparta) > 2;
 														  
 -- 5) VISUALIZA TODOS OS PROPRIETARIOS QUE NAO VIVEM NOS SEUS APARTAMENTOS.
 														  
-SELECT *
-FROM PROPRIETARIO AS P
-WHERE NOT EXISTS
-(
-	SELECT *
-	FROM APARTAMENTO AS A
-	WHERE P.Cod_proprietario = A.Cod_proprietario
-);
-
-SELECT PS.Nome_pessoa
-FROM PESSOA AS PS
-INNER JOIN PROPRIETARIO AS P
-ON PS.Id_pessoa = P.Id_pessoa
-INNER JOIN APARTAMENTO AS A
-ON A.Cod_proprietario = P.Cod_proprietario;
+SELECT * FROM Proprietario AS Pr WHERE Pr.id_pessoa IN
+	(SELECT M.id_pessoa FROM MORADOR AS M WHERE M.id_pessoa NOT IN
+	(SELECT A.proprietario FROM APARTAMENTO AS A WHERE
+			A.proprietario = Pr.cod_proprietario and M.apartamento = A.cod_aparta));
 
 -- 6) CALCULE A TAXA DE MULTA DE 5% PARA OS MORADORES QUE EFECTUARAM O PAGAMENTO 
 -- DEPOIS DO DIA 10 DO MES E VISUALIZA O NOME DO MORADOR, VALOR DO PAGAMENTO,
 -- A TAXA DO CONDOMINIO E O MES.
 
-UPDATE PAGAMENTO
-SET Valor_pagamento = 2300, Mes = 'Setembro'
-WHERE Cod_paga > 0;
+UPDATE PAGAMENTO SET taxa_multa = 0.05
+	WHERE TO_CHAR(data_paga, 'dd') > '10' OR CAST(TO_CHAR(data_paga, 'mm') AS int) > mes;
+
 
 -- VER OS MORADORES QUE EFECTUARAM O PAGAMENTO DEPOIS DO DIA 10 DO MES.
 
-SELECT PS.Nome_pessoa, PG.Valor_pagamento, PG.Taxa_multa
-FROM PESSOA AS PS
-INNER JOIN MORADOR AS M
-ON PS.Id_pessoa = M.Id_pessoa
-INNER JOIN PAGAMENTO AS PG
-ON PG.Cod_morador = M.Cod_morador
-INNER JOIN APARTAMENTO AS A
-ON A.Cod_aparta = M.Cod_aparta
-WHERE TO_CHAR(PG.Data_paga, 'DD') > '10';
-
--- PRIMEIRA PARTE
-
-UPDATE PAGAMENTO
-SET Taxa_multa = PG.Valor_pagamento * 1.05
-FROM PAGAMENTO AS PG
-INNER JOIN MORADOR AS M
-ON PG.Cod_morador = M.Cod_morador
-INNER JOIN APARTAMENTO AS A
-ON A.Cod_aparta = M.Cod_aparta
-WHERE TO_CHAR(PG.Data_paga, 'DD') > '10';
-
--- SEGUNDA PARTE
-														  
-SELECT PS.Nome_pessoa, PG.Valor_pagamento, PG.Taxa_condominio, PG.MES
-FROM PESSOA AS PS
-INNER JOIN MORADOR AS M
-ON PS.Id_pessoa = M.Id_pessoa
-INNER JOIN PAGAMENTO AS PG
-ON PG.Cod_morador = M.Cod_morador
-WHERE TO_CHAR(PG.Data_paga, 'DD') > '10';
+SELECT P.nome_pessoa, Pg.valor_pagamento, Pg.taxa_condominio, Pg.mes FROM PAGAMENTO AS Pg INNER JOIN PESSOA AS P
+	ON Pg.moradores = P.id_pessoa
+	WHERE (TO_CHAR(Pg.data_paga, 'dd') > '10' OR CAST(TO_CHAR(Pg.data_paga, 'mm') AS int) > Pg.mes);
 														  
 -- 7) EM FUNCAO DO EXE6, FAZ A SOMA DO VALOR A PAGAR (VALOR DO PAGAMENTO + TAXA DA MULTA + TAXA DO CONDOMINIO) 
 -- E VISUALIZA O NOME DO MORADOR, ANO DO PAGAMENTO E O VALOR A SE PAGAR.														  
 
-SELECT PS.Nome_pessoa, TO_CHAR(Data_paga, 'YYYY') AS ANO_PAGAMENTO, ( PG.Valor_pagamento + PG.Taxa_multa + PG.Taxa_condominio ) AS VALOR_SE_PAGAR
-FROM PESSOA AS PS
-INNER JOIN MORADOR AS M
-ON PS.Id_pessoa = M.Id_pessoa
-INNER JOIN PAGAMENTO AS PG
-ON PG.Cod_morador = M.Cod_morador;	
-														  
--- OU
-
-SELECT PS.Nome_pessoa, TO_CHAR(Data_paga, 'YYYY') AS ANO_PAGAMENTO, SUM( PG.Valor_pagamento + PG.Taxa_multa + PG.Taxa_condominio ) AS VALOR_SE_PAGAR
-FROM PESSOA AS PS
-INNER JOIN MORADOR AS M
-ON PS.Id_pessoa = M.Id_pessoa
-INNER JOIN PAGAMENTO AS PG
-ON PG.Cod_morador = M.Cod_morador
-GROUP BY PS.Nome_pessoa, TO_CHAR(Data_paga, 'YYYY');	
+SELECT P.nome_pessoa, TO_CHAR(Pg.data_paga, 'yyyy') AS Ano_Pagamento,
+	   (CAST(Pg.valor_pagamento AS NUMERIC) + Pg.taxa_multa * CAST(Pg.valor_pagamento AS NUMERIC) + Pg.taxa_condominio) AS Valor_a_Pagar
+	   FROM PAGAMENTO AS Pg INNER JOIN PESSOA AS P ON Pg.moradores = P.id_pessoa
+	   WHERE (TO_CHAR(Pg.data_paga, 'dd') > '10' OR CAST(TO_CHAR(Pg.data_paga, 'mm') AS int) > Pg.mes);	
 														  
 -- 8) ACTUALIZA A TAXA DE MULTA DE 7% PARA TODOS OS MORADORES QUE VIVEM NOS SEUS APARTAMENTOS.														  
 
-UPDATE PAGAMENTO
-SET Taxa_multa = Valor_pagamento * 1.07
-WHERE EXISTS
-(
-	SELECT *
-	FROM PROPRIETARIO AS P
-	INNER JOIN APARTAMENTO AS A
-	ON P.Cod_proprietario = A.Cod_proprietario
-	INNER JOIN MORADOR AS M
-	ON A.Cod_aparta = M.Cod_aparta														  
-	INNER JOIN PAGAMENTO AS PG
-	ON PG.Cod_morador = M.Cod_morador
-);		
-														  
-SELECT PS.Nome_pessoa, PG.Valor_pagamento, PG.Taxa_multa
-FROM PESSOA AS PS
-INNER JOIN MORADOR AS M
-ON PS.Id_pessoa = M.Id_pessoa
-INNER JOIN PAGAMENTO AS PG
-ON PG.Cod_morador = M.Cod_morador;
-														  
-UPDATE PAGAMENTO
-SET Taxa_multa = Valor_pagamento * 1.07
-FROM MORADOR
-WHERE PAGAMENTO.Cod_morador = MORADOR.Cod_morador;														  
+UPDATE PAGAMENTO SET taxa_multa = 0.07 WHERE moradores IN
+	(SELECT M.id_pessoa FROM MORADOR AS M WHERE M.id_pessoa IN
+		(SELECT A.proprietario FROM APARTAMENTO AS A WHERE
+				A.proprietario = M.id_pessoa and M.apartamento = A.cod_aparta));
+				
+SELECT * FROM PAGAMENTO;													  
 														  
 														  														  
 -- 9) ELIMINA TODOS OS MORADORES QUE VIVEM NOS SEUS APARTAMENTOS.														  
 														  
-DELETE
-FROM MORADOR AS M
-ON PS.Id_pessoa = M.Id_pessoa												  
-INNER JOIN APARTAMENTO AS A
-ON A.Cod_aparta = M.Cod_aparta;
-														  
-DELETE FROM MORADOR													  
-WHERE EXISTS
-(														  
-	SELECT *
-	FROM  MORADOR AS M											  
-	INNER JOIN APARTAMENTO AS A
-	ON A.Cod_aparta = M.Cod_aparta
-);
-
-DELETE FROM MORADOR													  
-WHERE Id_pessoa IN
-(														  
-	SELECT PS.Id_pessoa													  
-	FROM PESSOA AS PS
-	INNER JOIN MORADOR AS M
-	ON PS.Id_pessoa = M.Id_pessoa
-	INNER JOIN APARTAMENTO AS A
-	ON A.Cod_aparta = M.Cod_aparta
-);
-
-														  
-SELECT PS.Nome_pessoa
-FROM PESSOA AS PS
-INNER JOIN MORADOR AS M
-ON PS.Id_pessoa = M.Id_pessoa
-INNER JOIN APARTAMENTO AS A
-ON A.Cod_aparta = M.Cod_aparta;														  
-														  
-														  
--- PROPRIETARIOS QUE SAO MORADORES														  
-														  
-(
-	SELECT PS.Nome_pessoa													  
-	FROM PESSOA AS PS
-	INNER JOIN PROPRIETARIO AS P
-	ON PS.Id_pessoa = P.Id_pessoa
-)
-INTERSECT
-(
-	SELECT PS.Nome_pessoa
-	FROM PESSOA AS PS
-	INNER JOIN MORADOR AS M
-	ON PS.Id_pessoa = M.Id_pessoa
-);
-
-SELECT PS.Nome_pessoa													  
-FROM PESSOA AS PS
-INNER JOIN PROPRIETARIO AS P
-ON PS.Id_pessoa = P.Id_pessoa
-INNER JOIN APARTAMENTO AS A
-ON P.Cod_proprietario = A.Cod_proprietario
-INNER JOIN MORADOR AS M
-ON A.Cod_aparta = M.Cod_aparta;														  
-														  
--- PROPRIETARIOS QUE NAO SAO MORADORES														  
-														  
-(
-	SELECT PS.Nome_pessoa													  
-	FROM PESSOA AS PS
-	INNER JOIN PROPRIETARIO AS P
-	ON PS.Id_pessoa = P.Id_pessoa
-)
-EXCEPT
-(
-	SELECT PS.Nome_pessoa
-	FROM PESSOA AS PS
-	INNER JOIN MORADOR AS M
-	ON PS.Id_pessoa = M.Id_pessoa
-);														  
+DELETE FROM MORADOR AS M WHERE M.id_pessoa IN
+	(SELECT M.id_pessoa FROM MORADOR AS M WHERE M.id_pessoa IN
+		(SELECT A.proprietario FROM APARTAMENTO AS A WHERE
+				A.proprietario = M.id_pessoa and M.apartamento = A.cod_aparta));												  
 														  
 														  
 SELECT * FROM PESSOA;
