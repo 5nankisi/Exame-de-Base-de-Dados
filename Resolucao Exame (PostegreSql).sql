@@ -126,13 +126,19 @@ SELECT * FROM Proprietario AS Pr WHERE Pr.id_pessoa IN
 	(SELECT A.proprietario FROM APARTAMENTO AS A WHERE
 			A.proprietario = Pr.cod_proprietario and M.apartamento = A.cod_aparta));
 
--- 6) CALCULE A TAXA DE MULTA DE 5% PARA OS MORADORES QUE EFECTUARAM O PAGAMENTO 
--- DEPOIS DO DIA 10 DO MES E VISUALIZA O NOME DO MORADOR, VALOR DO PAGAMENTO,
--- A TAXA DO CONDOMINIO E O MES.
+/* SELECT * FROM Proprietario AS Pr WHERE Pr.id_pessoa IN
+								 (SELECT M.id_pessoa FROM Morador AS M WHERE M.id_pessoa NOT IN
+								 (SELECT Pr.id_pessoa FROM Proprietario AS Pr WHERE Pr.cod_proprietario IN
+								 (SELECT Ap.proprietario FROM Apartamento AS Ap WHERE Pr.id_pessoa = M.id_pessoa AND M.apartamento = Ap.cod_aparta))); */
 
-UPDATE PAGAMENTO SET taxa_multa = 0.05
-	WHERE TO_CHAR(data_paga, 'dd') > '10' OR CAST(TO_CHAR(data_paga, 'mm') AS int) > mes;
+/* 6) CALCULE A TAXA DE MULTA DE 5% PARA OS MORADORES QUE EFECTUARAM O PAGAMENTO
+	  DEPOIS DO DIA 10 DO MES E VISUALIZA O NOME DO MORADOR, VALOR DO PAGAMENTO, A TAXA DO CONDOMINIO E O MES. */
 
+ALTER TABLE Pagamento ALTER COLUMN mes tinyint;
+ALTER TABLE Pagamento ALTER COLUMN taxa_multa decimal(5,2);
+ALTER TABLE Pagamento ALTER COLUMN taxa_condominio decimal(5,2);
+
+UPDATE PAGAMENTO SET taxa_multa = 0.05 WHERE (TO_CHAR(Pg.data_paga, 'dd') > '10' OR CAST(TO_CHAR(Pg.data_paga, 'mm') AS int) > Pg.mes); 
 
 -- VER OS MORADORES QUE EFECTUARAM O PAGAMENTO DEPOIS DO DIA 10 DO MES.
 
@@ -140,8 +146,8 @@ SELECT P.nome_pessoa, Pg.valor_pagamento, Pg.taxa_condominio, Pg.mes FROM PAGAME
 	ON Pg.moradores = P.id_pessoa
 	WHERE (TO_CHAR(Pg.data_paga, 'dd') > '10' OR CAST(TO_CHAR(Pg.data_paga, 'mm') AS int) > Pg.mes);
 														  
--- 7) EM FUNCAO DO EXE6, FAZ A SOMA DO VALOR A PAGAR (VALOR DO PAGAMENTO + TAXA DA MULTA + TAXA DO CONDOMINIO) 
--- E VISUALIZA O NOME DO MORADOR, ANO DO PAGAMENTO E O VALOR A SE PAGAR.														  
+/* 7) EM FUNCAO DO EXE6, FAZ A SOMA DO VALOR A PAGAR (VALOR DO PAGAMENTO + TAXA DA MULTA + TAXA DO CONDOMINIO) 
+ 	  E VISUALIZA O NOME DO MORADOR, ANO DO PAGAMENTO E O VALOR A SE PAGAR.	*/
 
 SELECT P.nome_pessoa, TO_CHAR(Pg.data_paga, 'yyyy') AS Ano_Pagamento,
 	   (CAST(Pg.valor_pagamento AS NUMERIC) + Pg.taxa_multa * CAST(Pg.valor_pagamento AS NUMERIC) + Pg.taxa_condominio) AS Valor_a_Pagar
@@ -150,20 +156,19 @@ SELECT P.nome_pessoa, TO_CHAR(Pg.data_paga, 'yyyy') AS Ano_Pagamento,
 														  
 -- 8) ACTUALIZA A TAXA DE MULTA DE 7% PARA TODOS OS MORADORES QUE VIVEM NOS SEUS APARTAMENTOS.														  
 
-UPDATE PAGAMENTO SET taxa_multa = 0.07 WHERE moradores IN
-	(SELECT M.id_pessoa FROM MORADOR AS M WHERE M.id_pessoa IN
-		(SELECT A.proprietario FROM APARTAMENTO AS A WHERE
-				A.proprietario = M.id_pessoa and M.apartamento = A.cod_aparta));
-				
-SELECT * FROM PAGAMENTO;													  
+INSERT INTO Pagamento(data_paga, morador, valor_pagamento, taxa_condominio, mes) VALUES('2023-11-06', 4, 250, 0.03, 11);
+SELECT * FROM Pagamento;
+
+UPDATE Pagamento SET taxa_multa = 0.07 WHERE morador IN
+				 (SELECT M.cod_morador FROM Morador AS M WHERE M.id_pessoa IN
+				 (SELECT Ap.proprietario FROM Apartamento AS Ap WHERE M.id_pessoa = Ap.proprietario AND M.apartamento = Ap.cod_aparta));												  
 														  
 														  														  
--- 9) ELIMINA TODOS OS MORADORES QUE VIVEM NOS SEUS APARTAMENTOS.														  
-														  
-DELETE FROM MORADOR AS M WHERE M.id_pessoa IN
-	(SELECT M.id_pessoa FROM MORADOR AS M WHERE M.id_pessoa IN
-		(SELECT A.proprietario FROM APARTAMENTO AS A WHERE
-				A.proprietario = M.id_pessoa and M.apartamento = A.cod_aparta));												  
+-- 9) ELIMINA TODOS OS MORADORES QUE VIVEM NOS SEUS APARTAMENTOS.
+DELETE FROM Morador WHERE cod_morador IN
+				    (SELECT M.cod_morador FROM Morador AS M WHERE M.id_pessoa IN
+				    (SELECT Pr.id_pessoa FROM Proprietario AS Pr WHERE Pr.cod_proprietario IN
+					(SELECT Ap.proprietario FROM Apartamento AS Ap WHERE Pr.id_pessoa = M.id_pessoa AND M.apartamento = Ap.cod_aparta)));												  
 														  
 														  
 SELECT * FROM PESSOA;
